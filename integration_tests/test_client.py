@@ -47,7 +47,7 @@ def test_get_article_with_category_name():
     assert response["id"] == "s1001546"
     assert response["name"] == "Douwe Egberts aroma rood filterkoffie"
     assert "category_name" in response.keys()
-    assert response["category_name"] == "Koffie & thee"
+    assert response["category_name"] == "Koffie & thee > Filterkoffie > Regular", response["category_name"]
     
 
 def test_get_lists():
@@ -67,22 +67,22 @@ def test_get_cart():
 def test_add_product():
     # need a clear cart for reproducibility
     picnic.clear_cart()
-    response = picnic.add_product("10407428", count=2)
+    response = picnic.add_product("s1001546", count=2)
 
     assert isinstance(response, dict)
     assert "items" in response.keys()
-    assert any(item["id"] == "10407428" for item in response["items"][0]["items"])
-    assert _get_amount(response, "10407428") == 2
+    assert any(item["id"] == "s1001546" for item in response["items"][0]["items"])
+    assert _get_amount(response, "s1001546") == 2
 
 
 def test_remove_product():
     # need a clear cart for reproducibility
     picnic.clear_cart()
     # add two coffee to the cart so we can remove 1
-    picnic.add_product("10407428", count=2)
+    picnic.add_product("s1001546", count=2)
 
-    response = picnic.remove_product("10407428", count=1)
-    amount = _get_amount(response, "10407428")
+    response = picnic.remove_product("s1001546", count=1)
+    amount = _get_amount(response, "s1001546")
 
     assert isinstance(response, dict)
     assert "items" in response.keys()
@@ -150,5 +150,18 @@ def test_print_categories(capsys):
 
     assert isinstance(captured.out, str)
 
+def test_get_category_name():
+    name = picnic.get_category_name('nl.picnic-supermarkt://categories/21726/l2/21768/l3/22040')
+    assert name == "Vlees & vis > Kip & gevogelte > Kipfilet"
 
-# TO DO: add test for re-logging
+    name = picnic.get_category_name('nl.picnic-supermarkt://categories/21726/l2/21768/')
+    assert name == "Vlees & vis > Kip & gevogelte"
+
+    name = picnic.get_category_name('nl.picnic-supermarkt://categories/21726/')
+    assert name == "Vlees & vis"
+
+    name = picnic.get_category_name('nl.picnic-supermarkt://categories/21726/l2/21768/l3/213123')
+    assert name == "Vlees & vis > Kip & gevogelte"
+
+    name = picnic.get_category_name('nl.picnic-supermarkt://categories/21734/l2/21857/l3/22458')
+    assert name == "Voorraadkast > Kruiden & specerijen > Zout"
