@@ -1,6 +1,6 @@
 from hashlib import md5
 
-from .helper import _tree_generator, _url_generator, _get_category_name
+from .helper import _tree_generator, _url_generator, _get_category_ids_from_link
 from .session import PicnicAPISession, PicnicAuthError
 
 DEFAULT_URL = "https://storefront-prod.{}.picnicinternational.com/api/{}"
@@ -29,7 +29,7 @@ class PicnicAPI:
     def initialize_high_level_categories(self):
         """Initialize high-level categories once to avoid multiple requests."""
         if not self.high_level_categories:
-            self.high_level_categories = self.get_categories(depth=1)
+            self.high_level_categories = self.get_categories(depth=0)
 
     def _get(self, path: str, add_picnic_headers=False):
         url = self._base_url + path
@@ -49,7 +49,7 @@ class PicnicAPI:
     def _post(self, path: str, data=None):
         url = self._base_url + path
         response = self.session.post(url, json=data).json()
-
+        
         if self._contains_auth_error(response):
             raise PicnicAuthError(f"Picnic authentication error: {response['error'].get('message')}")
 
@@ -108,13 +108,31 @@ class PicnicAPI:
         if add_category_name and "category_link" in article:
             self.initialize_high_level_categories()
             article.update(
-                category_name=_get_category_name(article['category_link'], self.high_level_categories)
+                category_name=self.get_category_name(article['category_link'])
             )
         return article
         
-    def get_article_category(self, article_id: str):
-        path = "/articles/" + article_id + "/category"
-        return self._get(path)
+    def get_category_name(self, category_link: str):
+        self.initialize_high_level_categories()
+        categories = self.high_level_categories
+        category_ids = _get_category_ids_from_link(category_link)
+
+        def find_category_name(category_id):
+            return next((item["name"] for item in categories if item["id"] == category_id), None)
+
+        name = find_category_name(category_ids[0]) if category_ids else None
+
+        for i in range(1, 3):
+            if len(category_ids) > i:
+                categories = self._get(f"/lists/{category_ids[0]}" + (f"?sublist={category_ids[1]}" if i == 2 else ""))
+                if "error" in categories:
+                    print(categories)
+                    return name
+                categories = [c for c in categories if c['id'] == category_ids[i]]
+                if categories:
+                    name += (" > " + categories[0]['name'])
+
+        return name
 
     def add_product(self, product_id: str, count: int = 1):
         data = {"product_id": product_id, "count": count}
